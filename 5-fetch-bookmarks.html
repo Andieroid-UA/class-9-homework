@@ -23,7 +23,7 @@
         }
         .floater {
             background: white;
-            transition: 0.3s cubic-bezier(0.175, 0.82=85, 0.32, 1.4) all;
+            transition: 0.3s cubic-bezier(0.175, 0.82, 85, 0.32, 1.4) all;
             margin-bottom: 30px;
 
             z-index: 11;
@@ -33,7 +33,7 @@
             border: none;
             box-shadow: none;
             font-size: 14px;
-            transition: 0.3s cubic-bezier(0.175, 0.82=85, 0.32, 1.4) all;
+            transition: 0.3s cubic-bezier(0.175, 0.82, 85, 0.32, 1.4) all;
         }
         .floater-bottom {
             padding: 6px 10px 7px;
@@ -104,7 +104,8 @@
             border-radius: 3px;
             background-image: url();
             background-size: cover;
-            width: 80px;
+            background-position: top center;
+            width: 120px;
             height: 60px;
             margin-right: 20px;
         }
@@ -135,14 +136,13 @@
 <div class="floater content">
 <form class="bookmark-form">
     <div class="floater-top">
-        <input type="text" class="form-control" placeholder="What's on your mind?">
+        <input type="text" class="form-control" placeholder="Enter a note or a website">
     </div>
     <div class="floater-bottom">
         <button type="submit" class="btn btn-primary btn-sm">Add</button>
     </div>
 </form>
 </div>
-
 
 <!--This is where the a tag goes from the JS-->
 <div class="bookmarks-list content"></div>
@@ -167,7 +167,8 @@
     }
 
     input.addEventListener('focusin', showFloater);
-    input.addEventListener('focusout', closeFloater);
+    //was causing issues, not adding the links...
+    //input.addEventListener('focusout', closeFloater);
     overlay.addEventListener('click', closeFloater);
 
     //===================================//  
@@ -179,6 +180,8 @@
     const bookmarkForm      = document.querySelector('.bookmark-form');
     const bookmarkInput     = bookmarkForm.querySelector('input[type=text]');
     const bookmarks         = JSON.parse(localStorage.getItem('bookmarks')) || [];
+    const apiUrl            = 'https://opengraph.io/api/1.0/site';
+    const appId             = 'da196fbf-7f55-45e7-9c18-2e8103c77a6d';
 
     fillBookmarksList(bookmarks);
 
@@ -186,18 +189,36 @@
     function createBookmark(e) {
         e.preventDefault();
 
-        // add a new bookmark to the bookmarks array
+        if (!bookmarkInput.value) {
+            alert('Please enter a website');
+            return;
+        }
 
-        const title         = bookmarkInput.value;
-        const bookmark      = {
-            title: title
-        };
-        bookmarks.push(bookmark);
-        fillBookmarksList(bookmarks);
-        storeBookmarks(bookmarks);
-        bookmarkForm.reset();
+        const url = encodeURIComponent(bookmarkInput.value);
 
-        console.table(bookmarks);
+    //Fetch, JS Feature, adding promise beneath
+
+        //cleaner way of writing
+        fetch(`${apiUrl}/${url}?app_id=${appId}`)
+        //fetch(apiUrl + '/' + url + '?app_id=' + appId)
+            .then(response => response.json())
+            .then(data => {
+            const bookmark  = {
+                title: data.hybridGraph.title,
+                image: data.hybridGraph.image,
+                link: data.hybridGraph.url
+            };
+
+            bookmarks.push(bookmark);
+            fillBookmarksList(bookmarks);
+            storeBookmarks(bookmarks);
+            bookmarkForm.reset();
+        })
+        .catch(error => {
+            alert('There was a problem fetching data');
+        });
+
+        //console.table(bookmarks);
         //This is simlar to the "a" tag we put in the HTML
         // const title         = bookmarkInput.value;
         // const bookmark      = document.createElement('a');
@@ -214,8 +235,8 @@
     function fillBookmarksList(bookmarks = []) {
         const bookmarksHtml = bookmarks.map((bookmark, i) => {
             return `
-                <a href="#" class="bookmark" data-id="$[i]">
-                    <div class="img"></div>
+                <a href="${bookmark.link}" class="bookmark" data-id="${i}">
+                    <div class="img" style="background-image:url('${bookmark.image}')"></div>
                     <div class="title">${bookmark.title}</div>
                     <span class="glyphicon glyphicon-remove"></span>
                 </a>
@@ -239,6 +260,8 @@
     function removeBookmark(e) {
 
         if (!e.target.matches('.glyphicon-remove')) return;
+        // Prevent the default action (navigating to the linked URL)
+        e.preventDefault();
         // Find the index
         const index = e.target.parentNode.dataset.id;
         // remove it from the bookmarks list using splice
@@ -257,7 +280,6 @@
     bookmarksList.addEventListener('click', removeBookmark);
 
 </script>
-
 
 </body>
 </html>
